@@ -25,6 +25,8 @@ if (isset($_POST['search_pattern'])) {
 } else {
   $search_pattern = '';
 }
+
+
 if (!$quietmode) {
 ?>
 <br /><br />
@@ -84,13 +86,84 @@ if ($search_pattern != '' && $found == 0) {
   $html_txt .= '<br /><h3>'._("No Matches for the Requested Search").'</h3><br /><br /><br /><br />';
 }
 
+$table_template = <<<EOL
+<table id="%s">
+	<tr>
+		<th colspan="2">%s</th>
+	</tr>
+	%s
+</table>
+EOL;
 
+$row_template = <<<EOL
+<tr>
+	<td>%s</td>
+	<td>%s</td>
+</tr>
+EOL;
+
+$html_content = <<<EOL
+<html>
+	<head>
+		<style type="text/css" media="all">
+		html,body {
+			font: normal normal normal 14px "Helvetica Neue", Helvetica, sans-serif;
+		}
+		
+		table {
+			width:100%%;
+			margin-bottom:15px;
+		}
+				
+		table tr td {
+			padding:5px;
+		}
+		
+		table tr td:first-child {
+			width:90%%;
+		}
+		
+		table tr td:last-child {
+			text-align:center;
+		}
+
+		table tr:nth-child(odd) {
+			background-color:#eee !important;
+		}
+		
+		table th {
+			background-color: white;
+			text-align:left;
+			font-size:22px;
+			border-bottom:2px solid black;
+		}
+
+		table td {
+			padding:0;
+			margin:0;
+		}
+
+		table.core {
+	
+		}
+		</style>	
+	</head>
+	<body>
+		%s
+	</body>
+</html>
+
+EOL;
+
+$body_content = "";
+
+// generate HTML for extension listing
 foreach ($full_list as $key => $value) {
-
 	$sub_heading_id = $txtdom = $active_modules[$key]['rawname'];
 	if ($active_modules[$key]['rawname'] == 'featurecodeadmin' || ($quietmode && !isset($_REQUEST[$sub_heading_id]))) {
 		continue; // featurecodes are fetched below
 	}
+	
 	if ($txtdom == 'core') {
 		$txtdom = 'amp';
 		$active_modules[$key]['name'] = 'Extensions';
@@ -98,21 +171,25 @@ foreach ($full_list as $key => $value) {
 	} else {
 		$sub_heading =  dgettext($txtdom,$active_modules[$key]['name']);
 	}
+	
 	$module_select[$sub_heading_id] = $sub_heading;
-	$textext = _("Extension");
-	$html_txt_arr[$sub_heading] =  "<div class=\"$sub_heading_id\"><table border=\"0\" width=\"75%\"><tr width='90%'><td><br><strong>".sprintf("%s",$sub_heading)."</strong></td><td width=\"10%\" align=\"right\"><br><strong>".$textext."</strong></td></tr>\n";
+	$table_content = "";
+	
 	foreach ($value as $exten => $item) {
 		$description = explode(":",$item['description'],2);
-    $label_desc = trim($description[1])==''?$exten:$description[1];
-    if ($quietmode) {
-      $label_exten = $exten;
-    } else {
-      $label_exten = "<a href='".$item['edit_url']."'>$exten</a>";
-      $label_desc = "<a href='".$item['edit_url']."'>$label_desc</a>";
-    }
-		$html_txt_arr[$sub_heading] .= "<tr width=\"90%\"><td>$label_desc</td><td width=\"10%\" align=\"right\">".$label_exten."</td></tr>\n";
+		$label_desc = trim($description[1])==''?$exten:$description[1];
+		
+	    if ($quietmode) {
+	      $label_exten = $exten;
+	    } else {
+	      $label_exten = "<a href='".$item['edit_url']."'>$exten</a>";
+	      $label_desc = "<a href='".$item['edit_url']."'>$label_desc</a>";
+	    }
+		
+		$table_content .= sprintf($row_template, $label_desc, $label_exten);
 	}
-	$html_txt_arr[$sub_heading] .= "</table></div>";
+	
+	$body_content .= sprintf($table_template, $sub_heading_id, $sub_heading, $table_content);
 }
 
 function core_top($a, $b) {
@@ -135,15 +212,16 @@ if (!$quietmode) {
 	if (is_array($module_select)) uasort($module_select, 'core_top');
 }
 
-// Now, get all featurecodes.
-//
+// featurecodes
 $sub_heading_id =  'featurecodeadmin';
 if ((!$quietmode || isset($_REQUEST[$sub_heading_id])) && isset($full_list['featurecodeadmin'])) {
 	$featurecodes = featurecodes_getAllFeaturesDetailed(false);
 	$sub_heading =  dgettext($txtdom,$active_modules['featurecodeadmin']['name']);
 	$module_select[$sub_heading_id] = $sub_heading;
-	$html_txt_arr[$sub_heading] =  "<div class=\"$sub_heading_id\"><table border=\"0\" width=\"75%\"><tr colspan=\"2\" width='100%'><td><br /><strong>".sprintf("%s",$sub_heading)."</strong></td></tr>\n";
-	foreach ($featurecodes as $item) {
+	
+	$table_content = "";
+	
+	foreach($featurecodes as $item) {
 		$bind_domains = array();
 		if (isset($bind_domains[$item['modulename']]) || (extension_loaded('gettext') && is_dir("modules/".$item['modulename']."/i18n"))) {
 			if (!isset($bind_domains[$item['modulename']])) {
@@ -158,53 +236,57 @@ if ((!$quietmode || isset($_REQUEST[$sub_heading_id])) && isset($full_list['feat
 		$featurecodecustom = (isset($item['customcode']) ? $item['customcode'] : '');
 		$thiscode = ($featurecodecustom != '') ? $featurecodecustom : $featurecodedefault;
 
-    if ($search_pattern != '') {
-      if (!isset($full_list['featurecodeadmin'][$thiscode])) {
-        continue;
-      }
-    }
+	    if ($search_pattern != '') {
+	      if (!isset($full_list['featurecodeadmin'][$thiscode])) {
+	        continue;
+	      }
+	    }
 
 		$txtdom = $item['modulename'];
 		// if core then get translations from amp
 		if ($txtdom == 'core') {
 			$txtdom = 'amp';
 		}
+		
 		textdomain($txtdom);
 		if ($featureena && $moduleena) {
-      $label_desc = sprintf(dgettext($txtdom,$item['featuredescription']));
-      if (!$quietmode) {
-        $thiscode = "<a href='config.php?type=setup&display=featurecodeadmin'>$thiscode</a>";
-        $label_desc = "<a href='config.php?type=setup&display=featurecodeadmin'>$label_desc</a>";
-      }
-			$html_txt_arr[$sub_heading] .= "<tr width=\"90%\"><td>$label_desc</td><td width=\"10%\" align=\"right\">".$thiscode."</td></tr>\n";
+			$label_desc = sprintf(dgettext($txtdom,$item['featuredescription']));
+			if (!$quietmode) {
+				$thiscode = "<a href='config.php?type=setup&display=featurecodeadmin'>$thiscode</a>";
+				$label_desc = "<a href='config.php?type=setup&display=featurecodeadmin'>$label_desc</a>";
+			}
+			
+			$table_content .= sprintf($row_template, $label_desc, $thiscode);
 		}
 	}
+	
+	$body_content .= sprintf($table_template, $sub_heading_id, $sub_heading, $table_content);
 }
-$html_txt_arr[$sub_heading] .= "</table></div>";
-$html_txt .= implode("\n",$html_txt_arr);
 
 if (!$quietmode && ($search_pattern == '' || $found > 0)) {
 	$rnav_txt = '<div class="rnav"><form name="print" action="'.$_SERVER['PHP_SELF'].'" target="_blank" method="post">';
-  $rnav_txt .= '<input type="hidden" name="quietmode" value="on">';
-  $rnav_txt .= '<input type="hidden" name="display" value="'.$dispnum.'">';
-  $rnav_txt .= '<input type="hidden" name="type" value="'.$type.'">';
-  if ($search_pattern != '') {
-    $rnav_txt .= '<input type="hidden" name="search_pattern" value="'.$_POST['search_pattern'].'">';
-    if (isset($_POST['exact'])) {
-      $rnav_txt .= '<input type="hidden" name="exact" value="'.$_POST['exact'].'">';
-    } else if (isset($_POST['bounded'])) {
-      $rnav_txt .= '<input type="hidden" name="bounded" value="'.$_POST['bounded'].'">';
-    } else if (isset($_POST['regex'])) {
-      $rnav_txt .= '<input type="hidden" name="regex" value="'.$_POST['regex'].'">';
-    }
-  }
-
-  $rnav_txt .= '<ul>';
-	if (is_array($module_select)) foreach ($module_select as $id => $sub) {
-		$rnav_txt .= "<li><input type=\"checkbox\" value=\"$id\" name=\"$id\" id=\"$id\" class=\"disp_filter\" CHECKED /><label id=\"lab_$id\" name=\"lab_$id\" for=\"$id\">$sub</label></li>\n";
+	$rnav_txt .= '<input type="hidden" name="quietmode" value="on">';
+	$rnav_txt .= '<input type="hidden" name="display" value="'.$dispnum.'">';
+	$rnav_txt .= '<input type="hidden" name="type" value="'.$type.'">';
+	
+	if ($search_pattern != '') {
+		$rnav_txt .= '<input type="hidden" name="search_pattern" value="'.$_POST['search_pattern'].'">';
+	if (isset($_POST['exact'])) {
+		$rnav_txt .= '<input type="hidden" name="exact" value="'.$_POST['exact'].'">';
+	} else if (isset($_POST['bounded'])) {
+		$rnav_txt .= '<input type="hidden" name="bounded" value="'.$_POST['bounded'].'">';
+	} else if (isset($_POST['regex'])) {
+		$rnav_txt .= '<input type="hidden" name="regex" value="'.$_POST['regex'].'">';
 	}
-	$rnav_txt .= "</ul><hr><div style=\"text-align:center\"><input type=\"submit\" value=\"".sprintf(dgettext('printextensions',_("Printer Friendly Page")))."\" /></div>\n";
-	echo $rnav_txt;
+}
+
+$rnav_txt .= '<ul>';
+if (is_array($module_select)) foreach ($module_select as $id => $sub) {
+	$rnav_txt .= "<li><input type=\"checkbox\" value=\"$id\" name=\"$id\" id=\"$id\" class=\"disp_filter\" CHECKED /><label id=\"lab_$id\" name=\"lab_$id\" for=\"$id\">$sub</label></li>\n";
+}
+
+$rnav_txt .= "</ul><hr><div style=\"text-align:center\"><input type=\"submit\" value=\"".sprintf(dgettext('printextensions',_("Printer Friendly Page")))."\" /></div>\n";
+echo $rnav_txt;
 ?>
 	<script language="javascript">
 	<!-- Begin
@@ -220,5 +302,10 @@ if (!$quietmode && ($search_pattern == '' || $found > 0)) {
 	</form></div>
 <?php
 }
-echo $html_txt."</div>";
+
+if($quietmode) {
+	printf($html_content, $body_content);
+} else {
+	echo $body_content;
+}
 ?>
