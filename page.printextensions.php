@@ -102,6 +102,14 @@ $row_template = <<<EOL
 </tr>
 EOL;
 
+$polycom_row_template = <<<EOL
+<item>
+	<fn>%s</fn>
+	<ln>%s</ln>
+	<ct>%s</ct>
+</item>	
+EOL;
+
 $html_content = <<<EOL
 <html>
 	<head>
@@ -156,6 +164,7 @@ $html_content = <<<EOL
 EOL;
 
 $body_content = "";
+$polycom_content = "";
 
 // generate HTML for extension listing
 foreach ($full_list as $key => $value) {
@@ -187,6 +196,11 @@ foreach ($full_list as $key => $value) {
 	    }
 		
 		$table_content .= sprintf($row_template, $label_desc, $label_exten);
+		
+		$name_pieces = explode(" ", $label_desc);
+		$last_name = array_pop($name_pieces);
+		$first_name = impode(" ", $name_pieces);
+		$polycom_content .= sprintf($polycom_row_template, $first_name, $last_name, $label_exten);
 	}
 	
 	$body_content .= sprintf($table_template, $sub_heading_id, $sub_heading, $table_content);
@@ -304,7 +318,7 @@ echo $rnav_txt;
 }
 
 if($quietmode) {
-	printf($html_content, $body_content);
+	printf($html_content, $body_content."<pre>".$polycom_content."</pre>");
 } else {
 	echo $body_content;
 }
