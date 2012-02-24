@@ -26,7 +26,6 @@ if (isset($_POST['search_pattern'])) {
   $search_pattern = '';
 }
 
-
 if (!$quietmode) {
 ?>
 <br /><br />
@@ -278,7 +277,7 @@ if ((!$quietmode || isset($_REQUEST[$sub_heading_id])) && isset($full_list['feat
 }
 
 if (!$quietmode && ($search_pattern == '' || $found > 0)) {
-	$rnav_txt = '<div class="rnav"><form name="print" action="'.$_SERVER['PHP_SELF'].'" target="_blank" method="post">';
+	$rnav_txt = '<div class="rnav"><form id="print" name="print" action="'.$_SERVER['PHP_SELF'].'" target="_blank" method="post">';
 	$rnav_txt .= '<input type="hidden" name="quietmode" value="on">';
 	$rnav_txt .= '<input type="hidden" name="display" value="'.$dispnum.'">';
 	$rnav_txt .= '<input type="hidden" name="type" value="'.$type.'">';
@@ -300,6 +299,7 @@ if (is_array($module_select)) foreach ($module_select as $id => $sub) {
 }
 
 $rnav_txt .= "</ul><hr><div style=\"text-align:center\"><input type=\"submit\" value=\"".sprintf(dgettext('printextensions',_("Printer Friendly Page")))."\" /></div>\n";
+$rnav_txt .= "<div style=\"text-align:center\"><input type=\"button\" onclick=\"document.getElementById('print').quietmode.value = 'polycom'; document.getElementById('print').submit(); return true;\" value=\"XML for Polycom Directory\" /></div>\n";
 echo $rnav_txt;
 ?>
 	<script language="javascript">
